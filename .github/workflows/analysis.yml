@@ -1,0 +1,29 @@
+name: Analysis
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+  release:
+    types: [created]
+
+jobs:
+  analysis:
+    name: Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Run ESLint
+        run: yarn run lint
+
+      - name: Run Prettier
+        run: yarn run pretty

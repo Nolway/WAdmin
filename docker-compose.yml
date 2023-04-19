@@ -1,0 +1,63 @@
+version: '3.8'
+services:
+    traefik:
+        image: traefik:2.9
+        command:
+            - --log.level=DEBUG
+            - --api.insecure=true
+            - --providers.docker
+            - --entryPoints.web.address=:80
+            - --entryPoints.grpc.address=:50051
+            - --providers.docker.exposedbydefault=false
+        ports:
+            - "80:80"
+            - "50051:50051"
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+            - traefik.enable=true
+            - traefik.http.routers.traefik.service=api@internal
+            - traefik.http.routers.traefik.rule=Host(`traefik.localhost`)
+    wadmin:
+        build: docker/node
+        ports:
+          - 9229:9229
+          - 35729:35729
+        volumes:
+            - ./:/home/node/app
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        depends_on:
+            - database
+        environment:
+            - APP_SECRET=${APP_SECRET}
+            - DATABASE_HOST=${DATABASE_HOST}
+            - DATABASE_NAME=${DATABASE_NAME}
+            - DATABASE_USER=${DATABASE_USER}
+            - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+            - NODE_ENV=development
+        command: sh -c "yarn install && yarn run start:debug"
+        labels:
+            - traefik.enable=true
+            - traefik.http.services.wadmin.loadbalancer.server.port=3000
+            - traefik.http.routers.wadmin.rule=Host(`wadmin.localhost`)
+    database:
+        image: postgres:15.2-alpine
+        ports:
+          - 5432:5432
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        environment:
+            - PGDATA=/var/lib/postgresql/data/pgdata
+            - POSTGRES_DB=${DATABASE_NAME}
+            - POSTGRES_USER=${DATABASE_USER}
+            - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+        labels:
+            - traefik.enable=false
+    adminer:
+        image: adminer:latest
+        labels:
+            - traefik.enable=true
+            - traefik.http.services.adminer.loadbalancer.server.port=8080
+            - traefik.http.routers.adminer.rule=Host(`adminer.localhost`)
+volumes:
+    pgdata:
